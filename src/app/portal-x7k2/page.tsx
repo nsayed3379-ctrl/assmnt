@@ -47,7 +47,7 @@ export default async function AdminDashboard() {
             {rows.map((row: any) => (
               <tr key={row.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link href={`/admin/${row.id}`} className="font-medium text-slate-900 hover:underline">
+                  <Link href={`/portal-x7k2/${row.id}`} className="font-medium text-slate-900 hover:underline">
                     {row.full_name || row.email}
                   </Link>
                   {row.full_name && <div className="text-xs text-slate-400">{row.email}</div>}

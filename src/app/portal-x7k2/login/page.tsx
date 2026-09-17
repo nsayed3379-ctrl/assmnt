@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Login failed.");
       }
-      router.push("/admin");
+      router.push("/portal-x7k2");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Login failed.");

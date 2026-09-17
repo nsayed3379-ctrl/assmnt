@@ -27,7 +27,7 @@ export default async function CandidateDetail({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">
-      <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-700">
+      <Link href="/portal-x7k2" className="text-sm text-slate-500 hover:text-slate-700">
         &larr; Back to dashboard
       </Link>
 

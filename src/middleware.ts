@@ -11,7 +11,7 @@ const COOKIE_NAME = "vecosoft_admin_session";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isLoginPage = pathname === "/admin/login";
+  const isLoginPage = pathname === "/portal-x7k2/login";
   const isLoginApi = pathname === "/api/admin/login";
 
   if (isLoginPage || isLoginApi) {
@@ -20,7 +20,7 @@ export function middleware(req: NextRequest) {
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (!isValidAdminToken(token)) {
-    const loginUrl = new URL("/admin/login", req.url);
+    const loginUrl = new URL("/portal-x7k2/login", req.url);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -28,5 +28,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/portal-x7k2/:path*"],
 };
