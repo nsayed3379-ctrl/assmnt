@@ -25,6 +25,15 @@ export type AssessmentInsert = Partial<AssessmentRow> &
 
 export type AssessmentUpdate = Partial<AssessmentRow>;
 
+export type AdminLoginAttemptRow = {
+  id: number;
+  ip: string;
+  attempted_at: string;
+};
+
+export type AdminLoginAttemptInsert = Partial<AdminLoginAttemptRow> &
+  Pick<AdminLoginAttemptRow, "ip">;
+
 export type Database = {
   public: {
     Tables: {
@@ -32,6 +41,12 @@ export type Database = {
         Row: AssessmentRow;
         Insert: AssessmentInsert;
         Update: AssessmentUpdate;
+        Relationships: [];
+      };
+      admin_login_attempts: {
+        Row: AdminLoginAttemptRow;
+        Insert: AdminLoginAttemptInsert;
+        Update: Partial<AdminLoginAttemptRow>;
         Relationships: [];
       };
     };

@@ -20,10 +20,17 @@ export function createAdminSessionToken() {
   return `${issuedAt}.${sign(issuedAt)}`;
 }
 
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours, matches the cookie's maxAge
+
 export function isValidAdminToken(token: string | undefined | null) {
   if (!token) return false;
   const [issuedAt, mac] = token.split(".");
   if (!issuedAt || !mac) return false;
+
+  // Server-side expiry check: a copied/leaked cookie value shouldn't be
+  // valid forever just because the HMAC still checks out.
+  const age = Date.now() - Number(issuedAt);
+  if (!Number.isFinite(age) || age < 0 || age > SESSION_MAX_AGE_MS) return false;
 
   const expected = sign(issuedAt);
   const a = Buffer.from(mac);

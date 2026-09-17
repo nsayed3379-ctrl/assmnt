@@ -38,6 +38,18 @@ create index if not exists assessments_created_at_idx on assessments (created_at
 -- server, so the browser (anon key) never touches this table directly.
 alter table assessments enable row level security;
 
+-- Tracks admin login attempts per IP for brute-force rate limiting
+-- (see /api/admin/login). Old rows are pruned automatically on each request.
+create table if not exists admin_login_attempts (
+  id bigint generated always as identity primary key,
+  ip text not null,
+  attempted_at timestamptz not null default now()
+);
+
+create index if not exists admin_login_attempts_ip_idx on admin_login_attempts (ip, attempted_at desc);
+
+alter table admin_login_attempts enable row level security;
+
 -- Storage bucket for candidate ZIP submissions.
 insert into storage.buckets (id, name, public)
 values ('submissions', 'submissions', false)
