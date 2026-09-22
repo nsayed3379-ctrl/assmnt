@@ -41,7 +41,7 @@ export type InvitationEmailInput = {
   loginUrl?: string;
 };
 
-/** The invitation subject/body as edited in the admin panel (/admin/email-template), falling back to the built-in default if that row is missing (e.g. migration 0003 not run yet). */
+/** The invitation subject/body as edited in the admin panel (/portal-x7k2/email-template), falling back to the built-in default if that row is missing (e.g. migration 0003 not run yet). */
 async function fetchInvitationTemplate(): Promise<{ subject: string; body: string }> {
   try {
     const { data } = await supabaseAdmin()

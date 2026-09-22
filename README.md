@@ -47,7 +47,7 @@ npm run dev
 ```
 
 - Candidate portal: `http://localhost:3000/assessment/login`
-- Admin dashboard: `http://localhost:3000/admin` (redirects to `/admin/login`)
+- Admin dashboard: `http://localhost:3000/portal-x7k2` (redirects to `/portal-x7k2/login`) - deliberately not `/admin`; see the middleware note below
 
 ## 5. Resend setup (email)
 
@@ -97,10 +97,11 @@ src/
       dashboard/                    Task list, progress, Start / Final Submit
       task/[taskId]/                Per-task instructions + submission form
       completed/                    Post-submission confirmation
-    admin/
+    portal-x7k2/                    Admin panel - obscured path, not /admin
       login/                        Admin sign-in (email + password)
       page.tsx                      Overview stats + filterable candidate table
       import/                       Excel upload -> preview -> import -> send invites
+      email-template/               Preview/edit the invitation email subject+body
       candidates/[inviteId]/        Full submission review + scoring
     api/
       candidate/                    verify, set-name, start, draft, upload,
@@ -118,7 +119,7 @@ src/
     timer.ts                        Server-side expiry calculation
     adminData.ts                    Shared candidate-list query + scoring aggregation
     audit.ts                        Best-effort audit_logs writer
-  middleware.ts                     Protects /admin/* and /assessment/* behind
+  middleware.ts                     Protects /portal-x7k2/* and /assessment/* behind
                                      their respective session cookies
 scripts/
   create-admin.mjs                  Create/update an admin account

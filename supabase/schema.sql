@@ -18,6 +18,17 @@ create table if not exists admins (
   created_at timestamptz not null default now()
 );
 
+-- Tracks admin login attempts per IP for brute-force rate limiting (see
+-- /api/admin/login). Rows aren't actively pruned - old ones just fall
+-- outside the lookback window used by the rate-limit check.
+create table if not exists admin_login_attempts (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  attempted_at timestamptz not null default now()
+);
+
+create index if not exists admin_login_attempts_ip_idx on admin_login_attempts (ip, attempted_at desc);
+
 -- ============================================================
 -- Jobs & Assessments
 -- ============================================================
@@ -251,7 +262,7 @@ begin
       'admins','jobs','assessments','assessment_tasks','candidates',
       'assessment_invites','candidate_status_history','submissions',
       'submission_versions','evaluation_scores','integrity_events',
-      'email_logs','audit_logs','email_templates'
+      'email_logs','audit_logs','email_templates','admin_login_attempts'
     ])
   loop
     execute format('alter table %I enable row level security;', t);

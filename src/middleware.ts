@@ -9,13 +9,13 @@ export const runtime = "nodejs";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // --- Admin area ---
-  if (pathname.startsWith("/admin")) {
-    if (pathname === "/admin/login") return NextResponse.next();
+  // --- Admin area (obscured path - see README for why it's not /admin) ---
+  if (pathname.startsWith("/portal-x7k2")) {
+    if (pathname === "/portal-x7k2/login") return NextResponse.next();
 
     const token = req.cookies.get(getAdminCookieName())?.value;
     if (!isValidAdminToken(token)) {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      return NextResponse.redirect(new URL("/portal-x7k2/login", req.url));
     }
     return NextResponse.next();
   }
@@ -36,5 +36,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/assessment/:path*"],
+  matcher: ["/portal-x7k2/:path*", "/assessment/:path*"],
 };

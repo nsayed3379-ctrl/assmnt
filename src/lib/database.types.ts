@@ -48,6 +48,12 @@ export type AdminRow = {
   created_at: string;
 };
 
+export type AdminLoginAttemptRow = {
+  id: string;
+  ip: string;
+  attempted_at: string;
+};
+
 export type JobRow = {
   id: string;
   title: string;
@@ -196,6 +202,7 @@ export type Database = {
   public: {
     Tables: {
       admins: TableDef<AdminRow, Partial<AdminRow> & Pick<AdminRow, "email" | "password_hash">>;
+      admin_login_attempts: TableDef<AdminLoginAttemptRow, Partial<AdminLoginAttemptRow> & Pick<AdminLoginAttemptRow, "ip">>;
       jobs: TableDef<JobRow, Partial<JobRow> & Pick<JobRow, "title" | "slug">>;
       assessments: TableDef<AssessmentRow, Partial<AssessmentRow> & Pick<AssessmentRow, "title">>;
       assessment_tasks: TableDef<

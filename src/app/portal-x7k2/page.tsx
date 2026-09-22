@@ -17,7 +17,7 @@ export default async function AdminDashboard({
   searchParams: Promise<{ assessmentId?: string; status?: string; q?: string }>;
 }) {
   const session = await getAdminSession();
-  if (!session) redirect("/admin/login");
+  if (!session) redirect("/portal-x7k2/login");
 
   const { assessmentId, status, q } = await searchParams;
 
@@ -43,10 +43,10 @@ export default async function AdminDashboard({
         </div>
         <div className="flex items-center gap-4">
           <SendAllButton assessmentId={assessmentId} />
-          <Link href="/admin/email-template" className="text-sm font-medium text-brand hover:underline">
+          <Link href="/portal-x7k2/email-template" className="text-sm font-medium text-brand hover:underline">
             Email Template
           </Link>
-          <Link href="/admin/import" className="text-sm font-medium text-brand hover:underline">
+          <Link href="/portal-x7k2/import" className="text-sm font-medium text-brand hover:underline">
             Import Candidates
           </Link>
           <a href={`/api/admin/export?${exportParams.toString()}`} className="text-sm font-medium text-brand hover:underline">
@@ -107,7 +107,7 @@ export default async function AdminDashboard({
             {rows.map((row) => (
               <tr key={row.inviteId} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <Link href={`/admin/candidates/${row.inviteId}`} className="font-medium text-slate-900 hover:underline">
+                  <Link href={`/portal-x7k2/candidates/${row.inviteId}`} className="font-medium text-slate-900 hover:underline">
                     {row.fullName || row.email}
                   </Link>
                   {row.fullName && <div className="text-xs text-slate-400">{row.email}</div>}

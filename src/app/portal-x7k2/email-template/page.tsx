@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EmailTemplatePage() {
   const session = await requireAdminRole(["super_admin", "hr"]);
-  if (!session) redirect("/admin/login");
+  if (!session) redirect("/portal-x7k2/login");
 
   let subject = DEFAULT_INVITATION_SUBJECT;
   let body = DEFAULT_INVITATION_BODY;
@@ -30,7 +30,7 @@ export default async function EmailTemplatePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-700">
+      <Link href="/portal-x7k2" className="text-sm text-slate-500 hover:text-slate-700">
         &larr; Back to dashboard
       </Link>
 

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
   const session = await requireAdminRole(["super_admin", "hr"]);
-  if (!session) redirect("/admin/login");
+  if (!session) redirect("/portal-x7k2/login");
 
   const { data: assessments } = await supabaseAdmin()
     .from("assessments")
