@@ -14,6 +14,7 @@ export type CandidateListRow = {
   scoreEarned: number | null;
   scoreMax: number | null;
   integrityFlags: number;
+  invitationSent: boolean;
 };
 
 export type CandidateListFilters = {
@@ -41,12 +42,13 @@ export async function fetchCandidateList(filters: CandidateListFilters): Promise
   const candidateIds = [...new Set(invites.map((i) => i.candidate_id))];
   const assessmentIds = [...new Set(invites.map((i) => i.assessment_id))];
 
-  const [{ data: candidates }, { data: assessments }, { data: submissions }, { data: integrityEvents }] =
+  const [{ data: candidates }, { data: assessments }, { data: submissions }, { data: integrityEvents }, { data: sentEmails }] =
     await Promise.all([
       db.from("candidates").select("id, email, full_name").in("id", candidateIds),
       db.from("assessments").select("id, title").in("id", assessmentIds),
       db.from("submissions").select("id, invite_id").in("invite_id", inviteIds),
       db.from("integrity_events").select("invite_id, event_count").in("invite_id", inviteIds),
+      db.from("email_logs").select("invite_id").eq("type", "invitation").eq("status", "sent").in("invite_id", inviteIds),
     ]);
 
   const candidateById = new Map((candidates || []).map((c) => [c.id, c]));
@@ -73,6 +75,8 @@ export async function fetchCandidateList(filters: CandidateListFilters): Promise
     integrityByInvite.set(ev.invite_id, (integrityByInvite.get(ev.invite_id) || 0) + (ev.event_count || 1));
   }
 
+  const sentInviteIds = new Set((sentEmails || []).map((e) => e.invite_id).filter((id): id is string => id !== null));
+
   const rows = invites.map((invite) => {
     const candidate = candidateById.get(invite.candidate_id);
     const assessment = assessmentById.get(invite.assessment_id);
@@ -90,6 +94,7 @@ export async function fetchCandidateList(filters: CandidateListFilters): Promise
       scoreEarned: score ? score.earned : null,
       scoreMax: score ? score.max : null,
       integrityFlags: integrityByInvite.get(invite.id) || 0,
+      invitationSent: sentInviteIds.has(invite.id),
     };
   });
 

@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function SendMailButton({ assessmentId, inviteId }: { assessmentId: string; inviteId: string }) {
+export default function SendMailButton({
+  assessmentId,
+  inviteId,
+  alreadySent,
+}: {
+  assessmentId: string;
+  inviteId: string;
+  alreadySent: boolean;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +54,7 @@ export default function SendMailButton({ assessmentId, inviteId }: { assessmentI
         disabled={loading}
         className="text-xs font-medium text-brand hover:underline disabled:opacity-60"
       >
-        {loading ? "Sending..." : sent ? "Sent" : "Send Mail"}
+        {loading ? "Sending..." : sent ? "Sent" : alreadySent ? "Resend Mail" : "Send Mail"}
       </button>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </span>

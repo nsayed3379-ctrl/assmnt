@@ -141,7 +141,7 @@ export default async function AdminDashboard({
                 </td>
                 <td className="px-4 py-3">
                   {row.status === "invited" ? (
-                    <SendMailButton assessmentId={row.assessmentId} inviteId={row.inviteId} />
+                    <SendMailButton assessmentId={row.assessmentId} inviteId={row.inviteId} alreadySent={row.invitationSent} />
                   ) : (
                     <span className="text-slate-300">-</span>
                   )}
