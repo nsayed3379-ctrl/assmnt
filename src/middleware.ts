@@ -1,32 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAdminToken } from "@/lib/auth";
+import { isValidAdminToken, getAdminCookieName } from "@/lib/auth";
+import { parseCandidateSessionToken, getCandidateCookieName } from "@/lib/candidateAuth";
 
-// auth.ts uses Node's `crypto` module for HMAC signing, which the default
-// Edge runtime doesn't support - run this middleware on the Node.js
-// runtime instead (stable in Next.js 15+).
+// Both auth.ts and candidateAuth.ts use Node's `crypto` module for HMAC
+// signing, which the default Edge runtime doesn't support.
 export const runtime = "nodejs";
-
-const COOKIE_NAME = "vecosoft_admin_session";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isLoginPage = pathname === "/portal-x7k2/login";
-  const isLoginApi = pathname === "/api/admin/login";
+  // --- Admin area ---
+  if (pathname.startsWith("/admin")) {
+    if (pathname === "/admin/login") return NextResponse.next();
 
-  if (isLoginPage || isLoginApi) {
+    const token = req.cookies.get(getAdminCookieName())?.value;
+    if (!isValidAdminToken(token)) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
     return NextResponse.next();
   }
 
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  if (!isValidAdminToken(token)) {
-    const loginUrl = new URL("/portal-x7k2/login", req.url);
-    return NextResponse.redirect(loginUrl);
+  // --- Candidate assessment area ---
+  if (pathname.startsWith("/assessment")) {
+    if (pathname === "/assessment/login") return NextResponse.next();
+
+    const token = req.cookies.get(getCandidateCookieName())?.value;
+    const session = parseCandidateSessionToken(token);
+    if (!session) {
+      return NextResponse.redirect(new URL("/assessment/login", req.url));
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/portal-x7k2/:path*"],
+  matcher: ["/admin/:path*", "/assessment/:path*"],
 };

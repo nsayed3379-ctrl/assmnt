@@ -1,21 +1,17 @@
-# VecoSoft Assessment Portal (MVP)
+# Vecosoft Practical Hiring & Skill Assessment Platform
 
-A small, private, zero/near-zero-cost candidate assessment portal:
+A private candidate assessment platform: import shortlisted candidates from an Excel sheet, the system generates a unique access code per candidate, you email it to them (Resend), they sign in with email + code, complete a multi-task practical assessment against a server-authoritative timer, and your team reviews/scores submissions from an admin dashboard.
 
-- Candidate enters email + starts a timed task. Start time is recorded on the **server**, so the timer can't be manipulated from the browser (devtools, changing the system clock, etc.) — only what's *displayed* to the candidate uses their local clock, corrected against the server's.
-- Candidate submits a GitHub URL, Figma URL, live demo URL, and/or a ZIP upload, plus an AI-tools declaration and notes. Duration is computed server-side from `started_at` / `submitted_at`.
-- You get a private `/admin` dashboard (password protected) listing every candidate with their duration, links, AI declaration, and a status you can move through `Review → Shortlist / Rejected`.
+Stack: **Next.js 15 (App Router, TypeScript) + Tailwind + Supabase (Postgres + Storage) + Resend**. No separate backend service to run or host.
 
-Stack: Next.js 14 (App Router, TypeScript) + Tailwind + Supabase (Postgres + Storage). No separate backend to run.
+## 1. Create a dedicated Supabase project
 
-## 1. Create a Supabase project
+Use a **new, dedicated** Supabase project for this platform - don't share a database with an unrelated app. This keeps quotas, backups, and access isolated, and avoids the kind of "uploaded file got corrupted" problems that usually come from routing uploads through a disk-based server instead of straight into object storage (which is what this app does - see `src/app/api/candidate/upload/route.ts`).
 
-1. Go to [supabase.com](https://supabase.com) and create a free project.
-2. In the SQL Editor, run the contents of [`supabase/schema.sql`](./supabase/schema.sql). This creates the `assessments` table and a private `submissions` storage bucket.
-3. In **Project Settings → API**, copy:
-   - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (not used server-side yet, but kept for future client-side features)
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (**keep this secret** — it's only ever read on the server)
+1. Create a project at [supabase.com](https://supabase.com) (free tier is enough for a 50-500 candidate hiring round).
+2. In the SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql) once. This creates every table plus a private `submissions` storage bucket.
+   - If you ran `schema.sql` on this project **before** `access_code_encrypted` existed, also run [`supabase/migrations/0001_add_access_code_encrypted.sql`](./supabase/migrations/0001_add_access_code_encrypted.sql) once to add the new column.
+3. In **Project Settings → API**, copy the Project URL, `anon` key, and `service_role` key.
 
 ## 2. Configure environment variables
 
@@ -23,69 +19,109 @@ Stack: Next.js 14 (App Router, TypeScript) + Tailwind + Supabase (Postgres + Sto
 cp .env.example .env.local
 ```
 
-Fill in the Supabase values, plus:
+Fill in the Supabase values, a `RESEND_API_KEY` (see below), and generate a session secret and an access-code encryption key:
 
-- `ADMIN_PASSWORD` — the password for `/admin`. Change it from the default.
-- `ADMIN_SESSION_SECRET` — any long random string (used to sign the admin session cookie). Generate one with `openssl rand -hex 32`.
+```bash
+openssl rand -hex 32   # paste into ADMIN_SESSION_SECRET
+openssl rand -hex 32   # paste into ACCESS_CODE_ENCRYPTION_KEY
+```
 
-## 3. Run locally
+`ACCESS_CODE_ENCRYPTION_KEY` lets the admin dashboard show a candidate's current access code (AES-256-GCM encrypted at rest, decrypted server-side only for authenticated admins) - separate from `access_code_hash`, which is what login actually checks and can never be reversed.
+
+## 3. Create your first admin account and assessment
+
+There's no public admin signup page - admins are created with a script using your service-role key:
 
 ```bash
 npm install
+npm run create-admin -- "you@vecosoft.com" "a-strong-password" "Your Name" super_admin
+npm run seed-assessment
+```
+
+`seed-assessment` creates one example assessment with one task of each type (`github_url`, `link_submission`, `long_answer`, `mcq`) so you have something to import candidates against immediately. There is no admin UI for building assessments/tasks in Phase 1 - edit `scripts/seed-assessment.mjs` (or use the Supabase table editor directly) to define your real positions and tasks. A proper "assessment builder" screen is a natural Phase 2 addition once the core hiring flow is proven out.
+
+## 4. Run locally
+
+```bash
 npm run dev
 ```
 
-- Candidate flow: `http://localhost:3000`
-- Admin dashboard: `http://localhost:3000/admin` (redirects to a login page first)
+- Candidate portal: `http://localhost:3000/assessment/login`
+- Admin dashboard: `http://localhost:3000/admin` (redirects to `/admin/login`)
 
-## 4. Edit the task itself
+## 5. Resend setup (email)
 
-Open [`src/lib/tasks.ts`](./src/lib/tasks.ts). Each position has its own `durationMinutes` and `instructions` shown to the candidate after they click **Start Assessment**. Add a new key to add a new position — it shows up automatically in the candidate dropdown on the home page (also update the `POSITIONS` array in `src/app/page.tsx`, which is intentionally kept separate/static so the dropdown doesn't leak positions you haven't announced yet).
+1. Create a free account at [resend.com](https://resend.com) (3,000 emails/month, 100/day on the free tier - comfortably enough for a 50-candidate round).
+2. Grab an API key and put it in `RESEND_API_KEY`.
+3. To send from your own domain (`assessment@vecosoft.com` instead of a generic address), verify that domain in Resend (Domains → Add Domain → add the DNS records it gives you), then set `EMAIL_FROM="Vecosoft Careers <assessment@vecosoft.com>"`. Until the domain is verified, leave `EMAIL_FROM` as the default `onboarding@resend.dev` sender - invitations will still work, they'll just come from Resend's shared test address.
 
-## 5. Deploy (Vercel, free tier)
+## 6. Deploying and integrating with your existing Vecosoft site (subdomain)
 
-```bash
-npm i -g vercel   # if you don't have it
-vercel
-```
+This app is a **separate deployment** from your main Vecosoft marketing site - it doesn't need to live in the same codebase or hosting project. To make it feel integrated:
 
-Add the same environment variables from `.env.local` in the Vercel project's **Settings → Environment Variables**, then redeploy. Supabase's free tier plus Vercel's free tier is enough for an MVP hiring round.
+1. Deploy this project on its own (Netlify's free tier works with Next.js App Router, including the Node.js-runtime middleware this app uses - do one end-to-end smoke test with 2-3 dummy candidates right after deploying, before sending real invitations, since serverless Next.js hosting occasionally has edge cases with middleware).
+2. Add all the `.env.local` variables to the hosting project's environment variables settings, using your **production** Resend key and a real `NEXT_PUBLIC_APP_URL`.
+3. In your domain's DNS (wherever `vecosoft.com`/`vicosoft.com` is managed), add a subdomain - e.g. `careers.vecosoft.com` or `assessment.vecosoft.com` - pointing at the new deployment (a `CNAME` record to the host's provided target, or the exact record your hosting dashboard's "custom domain" screen asks for).
+4. Add that same subdomain as a custom domain inside the hosting project's dashboard.
+5. Update `NEXT_PUBLIC_APP_URL` to the final subdomain URL and redeploy, so invitation emails link to the right place.
+6. From your main site's careers page, link "Apply Now" / shortlist communications to that subdomain - no iframe or code-sharing needed, it's just a link between two independently-hosted sites.
 
-## How the anti-cheating timer actually works
+## How the anti-cheat features actually work (and their real limits)
 
-- `POST /api/start` inserts a row with `started_at = now()` — this timestamp comes from Postgres, not from anything the browser sends.
-- The assessment page fetches `started_at` and `duration_minutes` from the database and computes a countdown. It also hits `GET /api/time` once to measure the offset between the candidate's device clock and the server's, so the *displayed* countdown stays accurate even if their system clock is wrong — this is a UX nicety, not the enforcement mechanism.
-- `POST /api/submit` sets `submitted_at = now()` again from Postgres. The recorded duration (`submitted_at - started_at`) is always computed from these two server timestamps.
-- Going over time does **not** block submission — overtime is just recorded and shown to you in the dashboard (e.g. "63m" for a 60-minute task), matching how most take-home assessments are actually graded: a few minutes over is normal, and a hard cutoff would need extra work (locking a session, background jobs) that isn't worth it for a first hiring round.
+**Timer** - `started_at` and `expires_at` are set/read from Postgres, never from the candidate's browser. `expires_at` is `min(started_at + duration_minutes, hard_deadline)` if a hard deadline is set on the assessment, computed once at start time. The countdown shown to the candidate corrects for their device clock being wrong (`/api/time`), but that's a display nicety only - nothing about the deadline is enforced client-side. Going over time does **not** block submission; overtime is simply visible to reviewers.
 
-## Known MVP limitations (fine for round 1, worth revisiting if you scale this up)
+**Copy-paste protection** - the task instructions panel (`protected-text.tsx`) disables text selection and blocks copy/cut/right-click events. This stops casual copy-paste effectively. It does **not** and cannot stop screenshots, phone photos, or screen recording - no website can intercept those, they happen entirely outside the browser's control.
 
-- Single shared admin password, no per-reviewer accounts or audit log of who changed a status.
-- No email notifications to candidates on submit, or reminders as their time runs low.
-- No resume capability if a candidate closes the tab mid-assessment — reopening the same `/assessment/[id]` URL works (the timer keeps counting from the original `started_at`), but there's no "resend my link" flow if they lose the URL; add a lookup-by-email endpoint if this becomes a problem.
-- No hard time-based lockout — see above.
-- The ZIP upload path assumes trusted candidates; there's no virus scanning. For a first internal hiring round this is a reasonable tradeoff.
+**Watermark** - every task page overlays a faint tiled watermark with the candidate's email and a timestamp. This doesn't prevent leaking content, but if a screenshot does leak, it's traceable back to who took it.
+
+**Integrity logging** - copy attempts, right-click attempts, and tab-switches are logged per task, but **only for text-based tasks** (`mcq`, `short_answer`, `long_answer`). Tasks that require external tools (`github_url`, `link_submission`, `file_upload`) never log tab-switches, because candidates are expected to work in an external editor/GitHub and switching tabs there is completely normal - logging it would just be noise and could unfairly flag honest candidates. There is deliberately **no fullscreen lock and no auto-submit-on-blur**, since that would break the normal workflow of a practical coding task.
+
+## Known Phase 1 scope cuts (fine for a first hiring round, worth revisiting if this scales up)
+
+- No admin UI to author assessments/tasks - use `scripts/seed-assessment.mjs` or edit rows directly in Supabase's table editor.
+- Scoring is a single overall score + comment per task per reviewer, not a multi-criterion rubric breakdown (schema supports multiple `criterion` rows per submission already - the UI just doesn't expose a rubric builder yet).
+- Bulk admin actions (multi-select status change) aren't built - status changes are per-candidate. CSV export of the full filtered list is available from the dashboard.
+- MCQ auto-scoring against `correct_option_id` isn't wired up yet - MCQ answers show up for manual review like everything else.
+- A candidate is assumed to have one active invite/assessment at a time; the schema supports more per candidate for a future "apply to multiple roles" flow.
+- No email delivery/bounce webhook handling from Resend yet - failed sends are visible in `email_logs` and the admin can re-run "Send Invitations" to retry pending ones, but there's no automatic bounce tracking.
 
 ## Project structure
 
 ```
 src/
   app/
-    page.tsx                 Candidate entry (email, name, position)
-    assessment/[id]/         Task instructions, timer, submission form
-    admin/                   Password-gated dashboard + candidate detail
+    page.tsx                        Landing page -> candidate sign-in
+    assessment/
+      login/                        Candidate sign-in (email + access code)
+      set-name/                     One-time name capture if not pre-imported
+      dashboard/                    Task list, progress, Start / Final Submit
+      task/[taskId]/                Per-task instructions + submission form
+      completed/                    Post-submission confirmation
+    admin/
+      login/                        Admin sign-in (email + password)
+      page.tsx                      Overview stats + filterable candidate table
+      import/                       Excel upload -> preview -> import -> send invites
+      candidates/[inviteId]/        Full submission review + scoring
     api/
-      start/                 Creates an assessment row (server sets started_at)
-      submit/                Records submission (server sets submitted_at), uploads ZIP
-      time/                  Returns server time for client clock correction
-      admin/login|logout/    Admin session cookie
-      admin/status/          Update a candidate's review status
+      candidate/                    verify, set-name, start, draft, upload,
+                                     submit-task, final-submit, integrity, resend-code
+      admin/                        login, logout, import/preview, import/confirm,
+                                     send-invitations, status, score, export
+      time/                         Server clock for client countdown correction
   lib/
-    supabaseAdmin.ts         Server-only Supabase client (service role key)
-    tasks.ts                 Task copy + duration per position — edit this per role
-    auth.ts                  Admin session cookie signing/verification
-    format.ts                Display helpers (duration, status labels)
-  middleware.ts               Protects /admin/* behind the login cookie
-supabase/schema.sql            Run once in the Supabase SQL editor
+    supabaseAdmin.ts                Server-only Supabase client (service role key)
+    database.types.ts               Hand-written types matching supabase/schema.sql
+    auth.ts / candidateAuth.ts      Signed session cookies (admin / candidate)
+    codes.ts                        Access code + password hashing (bcrypt)
+    excel.ts                        .xlsx parsing/validation for candidate import
+    email.ts                        Resend templates + batch sending
+    timer.ts                        Server-side expiry calculation
+    adminData.ts                    Shared candidate-list query + scoring aggregation
+    audit.ts                        Best-effort audit_logs writer
+  middleware.ts                     Protects /admin/* and /assessment/* behind
+                                     their respective session cookies
+scripts/
+  create-admin.mjs                  Create/update an admin account
+  seed-assessment.mjs               Create an example job + assessment + tasks
+supabase/schema.sql                 Run once in the Supabase SQL editor
 ```
-npm run dev

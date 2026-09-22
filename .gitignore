@@ -1,20 +1,16 @@
-# dependencies
+# Secrets - never commit these
+.env
+.env*.local
+
+# Dependencies
 /node_modules
 
-# next.js
+# Next.js build output
 /.next/
 /out/
 
-# env files (secrets)
-.env
-.env.local
-.env.*.local
-
-# misc
-.DS_Store
-*.pem
-npm-debug.log*
-
-# typescript
+# TypeScript
 *.tsbuildinfo
-next-env.d.ts
+
+# OS/editor cruft
+.DS_Store

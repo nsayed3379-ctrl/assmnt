@@ -1,50 +1,72 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import type { AdminRole } from "./database.types";
 
 const COOKIE_NAME = "vecosoft_admin_session";
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+export type AdminSessionPayload = {
+  id: string;
+  email: string;
+  role: AdminRole;
+  iat: number;
+};
 
 function secret() {
   return process.env.ADMIN_SESSION_SECRET || "dev-only-insecure-secret";
 }
 
-function sign(value: string) {
-  return createHmac("sha256", secret()).update(value).digest("hex");
+function base64url(input: string) {
+  return Buffer.from(input, "utf8").toString("base64url");
 }
 
-// The session token is "<issuedAt>.<hmac>" so it can be verified without a
-// database lookup. It carries no identity beyond "knows the admin password
-// at issue time" - fine for a small internal hiring tool, not a substitute
-// for real multi-user auth if this grows past one admin.
-export function createAdminSessionToken() {
-  const issuedAt = Date.now().toString();
-  return `${issuedAt}.${sign(issuedAt)}`;
+function sign(payloadB64: string) {
+  return createHmac("sha256", secret()).update(payloadB64).digest("hex");
 }
 
-const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours, matches the cookie's maxAge
+/** "<base64url(json)>.<hmac>" - stateless, no DB lookup needed to verify a request. */
+export function createAdminSessionToken(payload: Omit<AdminSessionPayload, "iat">) {
+  const full: AdminSessionPayload = { ...payload, iat: Date.now() };
+  const body = base64url(JSON.stringify(full));
+  return `${body}.${sign(body)}`;
+}
 
-export function isValidAdminToken(token: string | undefined | null) {
-  if (!token) return false;
-  const [issuedAt, mac] = token.split(".");
-  if (!issuedAt || !mac) return false;
+export function parseAdminSessionToken(token: string | undefined | null): AdminSessionPayload | null {
+  if (!token) return null;
+  const [body, mac] = token.split(".");
+  if (!body || !mac) return null;
 
-  // Server-side expiry check: a copied/leaked cookie value shouldn't be
-  // valid forever just because the HMAC still checks out.
-  const age = Date.now() - Number(issuedAt);
-  if (!Number.isFinite(age) || age < 0 || age > SESSION_MAX_AGE_MS) return false;
-
-  const expected = sign(issuedAt);
+  const expected = sign(body);
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as AdminSessionPayload;
+    if (Date.now() - payload.iat > SESSION_TTL_MS) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function isValidAdminToken(token: string | undefined | null) {
+  return parseAdminSessionToken(token) !== null;
 }
 
 export function getAdminCookieName() {
   return COOKIE_NAME;
 }
 
-export async function isAdminRequestAuthed() {
+export async function getAdminSession(): Promise<AdminSessionPayload | null> {
   const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  return isValidAdminToken(token);
+  return parseAdminSessionToken(store.get(COOKIE_NAME)?.value);
+}
+
+/** Returns the session if the caller's role is allowed, otherwise null. */
+export async function requireAdminRole(allowed: AdminRole[]): Promise<AdminSessionPayload | null> {
+  const session = await getAdminSession();
+  if (!session) return null;
+  if (!allowed.includes(session.role)) return null;
+  return session;
 }
